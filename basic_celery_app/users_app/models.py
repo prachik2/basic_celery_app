@@ -1,6 +1,12 @@
+import binascii
+import os
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models, IntegrityError
 from django.utils import timezone
+from django.utils.translation import ugettext_lazy as _
+
+from basic_celery_app import settings
 
 
 class BaseQuerySet(models.QuerySet):
@@ -82,3 +88,31 @@ class User(AbstractUser, BaseModel):
 
     def save(self, *args, **kwargs):
         super(User, self).save(*args, **kwargs)
+
+
+class Token(models.Model):
+    """
+    The default authorization token model.
+    """
+    key = models.CharField(_("Key"), max_length=40, primary_key=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name='auth_user_token',
+        on_delete=models.DO_NOTHING, verbose_name=_("User")
+    )
+    created = models.DateTimeField(_("Created"), auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = _("Token")
+        verbose_name_plural = _("Tokens")
+
+    def save(self, *args, **kwargs):
+        if not self.key:
+            self.key = self.generate_key()
+        return super(Token, self).save(*args, **kwargs)
+
+    def generate_key(self):
+        return binascii.hexlify(os.urandom(20)).decode()  #9fc026a8735d09c4bc8e60be5a0a9e665b948376
+
+    def __str__(self):
+        return self.key
